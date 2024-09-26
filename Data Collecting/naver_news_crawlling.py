@@ -46,10 +46,10 @@ def text_clean(text):
 # db에 저장될때 인덱스 중복 방지
 def checkMaxNumber() :
     conn = pymysql.connect(
-        host='localhost'
-        , user='root'
-        , password='0000'
-        , db='capstone'
+        host='hostname'
+        , user='username'
+        , password='password'
+        , db='db'
         , charset='utf8'
     )
     cur = conn.cursor()
@@ -72,7 +72,10 @@ def checkMaxNumber() :
         # 커서와 연결을 닫음
         cur.close()
         conn.close()
-save_articleCnt=checkMaxNumber() # db에 기사가 몇개까지 저장됐는지
+
+# db에 기사가 몇개까지 저장됐는지
+# save_articleCnt=checkMaxNumber()
+save_articleCnt=0
 
 x=dt.datetime.now()
 dateCnt=0 # 가져올 날짜범위(개수)
@@ -134,7 +137,7 @@ while dateCnt<2 : # 기사 모든 날짜 출력(지정한 개수의 날짜만큼
                     addresses.append(address)
                     articleCnt=articleCnt+1 #기사 개수 카운트
                     nums.append(articleCnt+save_articleCnt)
-                    #print(articleCnt+save_articleCnt, title)
+                    print(articleCnt+save_articleCnt, title)
 
                 for articleSummary in articleSummarys :
                     press=articleSummary.select_one('.press').get_text()
@@ -206,10 +209,10 @@ print(type(nums), type(presses), type(wdates), type(articleURLs), type(titles), 
 # db에 크롤링한 데이터 저장
 def to_dbeaver(nums ,presses, wdates, articleURLs, titles, summarys, images) :
     conn = pymysql.connect(
-        host='localhost'
-        , user='root'
-        , password='0000'
-        , db='capstone'
+        host='hostname'
+        , user='username'
+        , password='password'
+        , db='db'
         , charset='utf8'
     )
     cur = conn.cursor()
@@ -227,6 +230,6 @@ def to_dbeaver(nums ,presses, wdates, articleURLs, titles, summarys, images) :
     conn.commit()
     conn.close()
 
-to_dbeaver(nums, presses, wdates, articleURLs, titles, summarys, images)
+#to_dbeaver(nums, presses, wdates, articleURLs, titles, summarys, images)
 
 
