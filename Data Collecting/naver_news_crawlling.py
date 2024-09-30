@@ -94,7 +94,7 @@ articleURLs=[]
 summarys=[]
 img_list=[]
 
-while dateCnt<2 : # 기사 모든 날짜 출력(지정한 개수의 날짜만큼만)
+while articleCnt<30 : # 기사 모든 날짜 출력(지정한 개수의 날짜만큼만)
     url=f"https://finance.naver.com/news/news_list.naver?mode=LSS3D&section_id=101&section_id2=258&section_id3=402&date={date}"
     res = req.urlopen(url).read().decode('cp949') 
     soup = BeautifulSoup(res, "html.parser")
@@ -114,7 +114,7 @@ while dateCnt<2 : # 기사 모든 날짜 출력(지정한 개수의 날짜만큼
     while cnt<=tdsCnt : # 하루치 기사만 리스트에 저장
         ur= f"https://finance.naver.com/news/news_list.naver?mode=LSS3D&section_id=101&section_id2=258&section_id3=402&date={date}&page={cnt}"
         
-        # 기사 url 따로 리스트에 저장 (지워도 될듯)
+        # 기사 url 따로 리스트에 저장
         urlList.insert(num,ur)
         cnt=cnt+1
         num=num+1
