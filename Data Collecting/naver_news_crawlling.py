@@ -157,7 +157,7 @@ for k in range(articleCnt):
     driver.get(articleURL)
 
     try:
-        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, 'dic_area')))
+        WebDriverWait(driver, 30).until(EC.visibility_of_element_located((By.ID, 'dic_area')))
         
         driver.execute_script("document.querySelectorAll('a').forEach(link => { link.onclick = function(event) { event.preventDefault(); }; });")
     
@@ -210,3 +210,6 @@ def to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images):
     conn.close()
 
 to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images)
+
+
+
