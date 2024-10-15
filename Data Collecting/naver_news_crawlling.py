@@ -14,6 +14,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 
 # ChromeDriver 경로 설정
@@ -24,29 +25,29 @@ sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
 
 def text_clean(text):
-    pattern = r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)' # E-mail 제거
+    pattern = r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'  # E-mail 제거
     text = re.sub(pattern, '', text)
-    pattern = r'(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+' # URL 제거
+    pattern = r'(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'  # URL 제거
     text = re.sub(pattern, '', text)
-    pattern = '<[^>]*>'         # HTML 태그 제거
+    pattern = '<[^>]*>'  # HTML 태그 제거
     text = re.sub(pattern, '', text)
-    pattern = '[\n]'            # \n 제거
+    pattern = '[\n]'  # \n 제거
     text = re.sub(pattern, '', text)
-    pattern = '[\t]'            # \t 제거
+    pattern = '[\t]'  # \t 제거
     text = re.sub(pattern, '', text)
-    pattern = '[\']'           
+    pattern = '[\']'
     text = re.sub(pattern, '', text)
-    pattern = '[\"]'            
+    pattern = '[\"]'
     text = re.sub(pattern, '', text)
-    return text  
+    return text
 
-def checkMaxNumber() :
+def checkMaxNumber():
     conn = pymysql.connect(
-        host='hostname'
-        , user='username'
-        , password='password'
-        , db='db'
-        , charset='utf8'
+        host='hostname',
+        user='username',
+        password='password',
+        db='db',
+        charset='utf8'
     )
     cur = conn.cursor()
 
@@ -54,18 +55,18 @@ def checkMaxNumber() :
         cur.execute('SELECT MAX(Number) AS maxNumber FROM news')
         results = cur.fetchall()
         if results:
-            MaxNumber = results[0][0]  
-            return(MaxNumber)  
+            MaxNumber = results[0][0]
+            return MaxNumber
         else:
-            return(0)
-    except Exception as e :
+            return 0
+    except Exception as e:
         print('Error Message :', e)
         pass
     finally:
         cur.close()
         conn.close()
 
-save_articleCnt=0
+save_articleCnt = 0
 
 # 현재 날짜와 원하는 날짜 범위를 설정 (예: 2020년 1월 1일까지)
 x = dt.datetime.now()
@@ -89,13 +90,13 @@ img_list = []
 while date >= end_date:  # 2020년 1월 1일까지 크롤링
     date_str = date.strftime("%Y%m%d")  # YYYYMMDD 형식으로 날짜 출력
     url = f"https://finance.naver.com/news/news_list.naver?mode=LSS3D&section_id=101&section_id2=258&section_id3=402&date={date_str}"
-    res = req.urlopen(url).read().decode('cp949') 
+    res = req.urlopen(url).read().decode('cp949')
     soup = BeautifulSoup(res, "html.parser")
 
     tr = soup.find('tr', attrs={'align':'center'})
     tds = tr.find_all('td')
     tdsCnt = len(tds) - 1
-    if tdsCnt == 0: 
+    if tdsCnt == 0:
         tdsCnt = 1
     print("\n")
 
@@ -105,7 +106,7 @@ while date >= end_date:  # 2020년 1월 1일까지 크롤링
 
     while cnt <= tdsCnt:
         ur = f"https://finance.naver.com/news/news_list.naver?mode=LSS3D&section_id=101&section_id2=258&section_id3=402&date={date_str}&page={cnt}"
-        
+
         urlList.insert(num, ur)
         cnt += 1
         num += 1
@@ -115,7 +116,7 @@ while date >= end_date:  # 2020년 1월 1일까지 크롤링
 
         for linkList in NewsList:
             links = linkList.select('li')
-            for link in links:    
+            for link in links:
                 articleSubjects = link.select('.articleSubject')
                 articleSummarys = link.select('.articleSummary')
 
@@ -126,7 +127,7 @@ while date >= end_date:  # 2020년 1월 1일까지 크롤링
                     title = text_clean(title)
                     titles.append(title)
                     addresses.append(address)
-                    articleCnt += 1 
+                    articleCnt += 1
                     nums.append(articleCnt + save_articleCnt)
                     print(articleCnt + save_articleCnt, title)
 
@@ -146,61 +147,96 @@ for k in range(articleCnt):
     article_id = addresses[k]
     article_id = article_id[a+11:b]
     office_id = addresses[k]
-    office_id = office_id[b+11:c]                
-    
+    office_id = office_id[b+11:c]
+
     articleURL = f"https://n.news.naver.com/mnews/article/{office_id}/{article_id}"
 
     res = requests.get(articleURL)
-
     articleURLs.append(articleURL)
 
     driver.get(articleURL)
 
-    try:
-        WebDriverWait(driver, 30).until(EC.visibility_of_element_located((By.ID, 'dic_area')))
-        
-        driver.execute_script("document.querySelectorAll('a').forEach(link => { link.onclick = function(event) { event.preventDefault(); }; });")
-    
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
+    # 페이지가 완전히 로드될 때까지 대기하는 함수
+    def wait_for_page_load(driver, timeout=60):
+        WebDriverWait(driver, timeout).until(
+            lambda d: d.execute_script('return document.readyState') == 'complete'
+        )
 
-        content = soup.select_one('#dic_area').get_text()
-        image = soup.select_one('#img1')
-        if image:
-            image_src = image.get('src')
-            if image_src:
-                print(image_src)
+    # 시도 횟수 제한
+    retries = 3
+    while retries > 0:
+        try:
+            # 페이지 로드 확인
+            wait_for_page_load(driver)
+
+            # WebDriverWait 대기 시간을 60초로 늘리고, TimeoutException 발생 시 예외 처리
+            WebDriverWait(driver, 60).until(EC.visibility_of_element_located((By.ID, 'dic_area')))
+
+            # 모든 링크 클릭 방지
+            driver.execute_script("document.querySelectorAll('a').forEach(link => { link.onclick = function(event) { event.preventDefault(); }; });")
+
+            html = driver.page_source
+            soup = BeautifulSoup(html, "html.parser")
+
+            content = soup.select_one('#dic_area').get_text()
+            image = soup.select_one('#img1')
+
+            if image:
+                image_src = image.get('src')
+                if image_src:
+                    print(image_src)
+                else:
+                    print("No src attribute found")
             else:
-                print("No src attribute found")
-        else:
+                image_src = None
+                print("No image found")
+            break  # 성공적으로 완료된 경우 재시도 중지
+
+        except TimeoutException:
+            print(f"TimeoutException: 'dic_area' element not found within 60 seconds at {articleURL}")
+            content = "Content could not be loaded due to timeout."
             image_src = None
-            print("No image found")
-    except AttributeError as e:
-        print("An error occurred:", e)
+            retries -= 1  # 시도 횟수 감소
+            if retries == 0:
+                print("Max retries reached. Skipping this article.")
+                break  # 시도 횟수를 초과하면 중단
+        except NoSuchElementException as e:
+            print(f"NoSuchElementException: {e}")
+            content = "Content could not be loaded due to missing elements."
+            image_src = None
+            break
+        except AttributeError as e:
+            print(f"AttributeError occurred: {e}")
+            content = "Content could not be loaded due to an error."
+            image_src = None
+            break
+
+    # 텍스트 클리닝 후 리스트에 저장
     content = text_clean(content)
     contents.append(content)
     images.append(image_src)
 
 driver.quit()
+
 print("\n")
 
 print(type(nums), type(presses), type(wdates), type(articleURLs), type(titles), type(contents), type(images))
 
 def to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images):
     conn = pymysql.connect(
-        host='hostname'
-        , user='username'
-        , password='password'
-        , db='db'
-        , charset='utf8'
+        host='hostname',
+        user='username',
+        password='password',
+        db='db',
+        charset='utf8'
     )
     cur = conn.cursor()
-    
+
     for num, press, wdate, url, title, content, image in zip(nums, presses, wdates, articleURLs, titles, contents, images):
         num = int(num)
         sql = "INSERT INTO news (Number, Press, Wdate, Url, Title, Contents, Image) VALUES ({}, '{}', '{}', '{}', '{}', '{}', '{}')".format(
                 num, press, wdate, url, title, content, image)
-        try: 
+        try:
             cur.execute(sql)
             print('insert to DB Success!')
         except Exception as e:
@@ -210,6 +246,5 @@ def to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images):
     conn.close()
 
 to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images)
-
 
 
