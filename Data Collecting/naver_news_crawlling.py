@@ -16,6 +16,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
+from requests.exceptions import ChunkedEncodingError, ConnectionError
 
 # ChromeDriver 경로 설정
 service = Service('C:\\Program Files\\chromedriver.exe')
@@ -90,13 +91,26 @@ img_list = []
 while date >= end_date:  # 2020년 1월 1일까지 크롤링
     date_str = date.strftime("%Y%m%d")  # YYYYMMDD 형식으로 날짜 출력
     url = f"https://finance.naver.com/news/news_list.naver?mode=LSS3D&section_id=101&section_id2=258&section_id3=402&date={date_str}"
-    res = req.urlopen(url).read().decode('cp949')
-    soup = BeautifulSoup(res, "html.parser")
+
+    retries = 3  # 재시도 횟수 설정
+    while retries > 0:
+        try:
+            res = req.urlopen(url).read().decode('cp949')
+            soup = BeautifulSoup(res, "html.parser")
+            break  # 성공적으로 페이지를 불러오면 루프 종료
+        except (ChunkedEncodingError, ConnectionError, TimeoutError) as e:
+            print(f"Error occurred: {e}. Retrying... ({3 - retries + 1}/3)")
+            retries -= 1  # 재시도 횟수 감소
+            time.sleep(2)  # 잠시 대기 후 재시도
+            if retries == 0:
+                print("Max retries reached. Skipping this date.")
+                date -= dt.timedelta(days=1)  # 다음 날짜로 넘어가기
+                continue
 
     tr = soup.find('tr', attrs={'align':'center'})
     tds = tr.find_all('td')
     tdsCnt = len(tds) - 1
-    if tdsCnt == 0:
+    if (tdsCnt == 0):
         tdsCnt = 1
     print("\n")
 
@@ -110,8 +124,20 @@ while date >= end_date:  # 2020년 1월 1일까지 크롤링
         urlList.insert(num, ur)
         cnt += 1
         num += 1
-        res = req.urlopen(ur).read().decode('cp949')
-        soup = BeautifulSoup(res, "html.parser")
+        retries = 3
+        while retries > 0:
+            try:
+                res = req.urlopen(ur).read().decode('cp949')
+                soup = BeautifulSoup(res, "html.parser")
+                break
+            except (ChunkedEncodingError, ConnectionError, TimeoutError) as e:
+                print(f"Error occurred: {e}. Retrying... ({3 - retries + 1}/3)")
+                retries -= 1
+                time.sleep(2)
+                if retries == 0:
+                    print("Max retries reached. Skipping this page.")
+                    continue
+
         NewsList = soup.select('#contentarea_left > ul.realtimeNewsList')
 
         for linkList in NewsList:
@@ -151,21 +177,20 @@ for k in range(articleCnt):
 
     articleURL = f"https://n.news.naver.com/mnews/article/{office_id}/{article_id}"
 
-    res = requests.get(articleURL)
-    articleURLs.append(articleURL)
-
-    driver.get(articleURL)
-
-    # 페이지가 완전히 로드될 때까지 대기하는 함수
-    def wait_for_page_load(driver, timeout=60):
-        WebDriverWait(driver, timeout).until(
-            lambda d: d.execute_script('return document.readyState') == 'complete'
-        )
-
-    # 시도 횟수 제한
     retries = 3
     while retries > 0:
         try:
+            res = requests.get(articleURL)
+            articleURLs.append(articleURL)
+
+            driver.get(articleURL)
+
+            # 페이지가 완전히 로드될 때까지 대기하는 함수
+            def wait_for_page_load(driver, timeout=60):
+                WebDriverWait(driver, timeout).until(
+                    lambda d: d.execute_script('return document.readyState') == 'complete'
+                )
+
             # 페이지 로드 확인
             wait_for_page_load(driver)
 
@@ -192,24 +217,15 @@ for k in range(articleCnt):
                 print("No image found")
             break  # 성공적으로 완료된 경우 재시도 중지
 
-        except TimeoutException:
-            print(f"TimeoutException: 'dic_area' element not found within 60 seconds at {articleURL}")
-            content = "Content could not be loaded due to timeout."
-            image_src = None
-            retries -= 1  # 시도 횟수 감소
+        except (TimeoutException, ChunkedEncodingError, ConnectionError, NoSuchElementException) as e:
+            print(f"Error occurred: {e}. Retrying... ({3 - retries + 1}/3)")
+            retries -= 1
+            time.sleep(2)
             if retries == 0:
                 print("Max retries reached. Skipping this article.")
-                break  # 시도 횟수를 초과하면 중단
-        except NoSuchElementException as e:
-            print(f"NoSuchElementException: {e}")
-            content = "Content could not be loaded due to missing elements."
-            image_src = None
-            break
-        except AttributeError as e:
-            print(f"AttributeError occurred: {e}")
-            content = "Content could not be loaded due to an error."
-            image_src = None
-            break
+                content = "Content could not be loaded due to timeout."
+                image_src = None
+                break
 
     # 텍스트 클리닝 후 리스트에 저장
     content = text_clean(content)
@@ -246,5 +262,3 @@ def to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images):
     conn.close()
 
 to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images)
-
-
