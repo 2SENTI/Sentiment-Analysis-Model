@@ -53,7 +53,7 @@ def checkMaxNumber():
     cur = conn.cursor()
 
     try:
-        cur.execute('SELECT MAX(Number) AS maxNumber FROM news')
+        cur.execute('SELECT MAX(Number) AS maxNumber FROM financial_news')  # 수정된 부분
         results = cur.fetchall()
         if results:
             MaxNumber = results[0][0]
@@ -69,9 +69,9 @@ def checkMaxNumber():
 
 save_articleCnt = 0
 
-# 현재 날짜와 원하는 날짜 범위를 설정 (예: 2020년 1월 1일까지)
+# 현재 날짜와 원하는 날짜 범위를 설정
 x = dt.datetime.now()
-end_date = dt.datetime(2020, 1, 1)  # 2020년 1월 1일까지 크롤링
+end_date = dt.datetime(2023, 1, 1)  # 2023년 1월 1일까지 크롤링
 date = x
 
 urlList = []
@@ -88,7 +88,7 @@ articleURLs = []
 contents = []
 img_list = []
 
-while date >= end_date:  # 2020년 1월 1일까지 크롤링
+while date >= end_date:  # 2023년 1월 1일까지 크롤링
     date_str = date.strftime("%Y%m%d")  # YYYYMMDD 형식으로 날짜 출력
     url = f"https://finance.naver.com/news/news_list.naver?mode=LSS3D&section_id=101&section_id2=258&section_id3=402&date={date_str}"
 
@@ -250,7 +250,7 @@ def to_dbeaver(nums, presses, wdates, articleURLs, titles, contents, images):
 
     for num, press, wdate, url, title, content, image in zip(nums, presses, wdates, articleURLs, titles, contents, images):
         num = int(num)
-        sql = "INSERT INTO news (Number, Press, Wdate, Url, Title, Contents, Image) VALUES ({}, '{}', '{}', '{}', '{}', '{}', '{}')".format(
+        sql = "INSERT INTO financial_news (Number, Press, Wdate, Url, Title, Contents, Image) VALUES ({}, '{}', '{}', '{}', '{}', '{}', '{}')".format(  # 수정된 부분
                 num, press, wdate, url, title, content, image)
         try:
             cur.execute(sql)
