@@ -5,16 +5,18 @@ import time
 # OpenAI API 키 설정
 openai.api_key = "YOUR_API_KEY"  # 자신의 API 키로 교체
 
-# MySQL 연결 설정
-conn = pymysql.connect(
-    host='hostname', 
-    user='username', 
-    password='password',
-    db='db', 
-    charset='utf8'
-)
+# MySQL 연결 설정 함수 -> 오류 발생 시 재연결을 위해 함수화
+def create_connection():
+    return pymysql.connect(
+        host='hostname', 
+        user='username', 
+        password='password',
+        db='db', 
+        charset='utf8'
+    )
 
-# 커서 생성
+# MySQL 연결 생성
+conn = create_connection()
 cursor = conn.cursor()
 
 # 뉴스 기사 요약 함수
@@ -29,7 +31,7 @@ def summarize_article(article):
         completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            max_tokens=150,  # 요약 길이를 150 토큰으로 제한
+            max_tokens=150,
             temperature=0.7
         )
 
@@ -42,32 +44,46 @@ def summarize_article(article):
         return summarize_article(article)
 
 # 데이터베이스에서 뉴스 기사 가져오기
-cursor.execute("SELECT Number, Contents FROM financial_news WHERE Contents IS NOT NULL")
+cursor.execute("SELECT Number, Contents FROM api_financial_news WHERE Contents IS NOT NULL")
 rows = cursor.fetchall()
 
-# 요약 결과를 저장할 리스트
-summaries = []
-
-# 각 기사 요약 처리
-for row in rows:
-    article_number = row[0]  # 기사 번호 (Number)
+# 각 기사 처리
+for idx, row in enumerate(rows, 1):
+    article_number = row[0]  # 기사 번호
     article_content = row[1]  # 기사 내용
-    
-    # 기사 요약
-    summary = summarize_article(article_content)
-    
-    # Summary 업데이트
-    summaries.append((summary, article_number))
 
-# 요약된 내용 데이터베이스에 업데이트
-for summary, article_number in summaries:
-    cursor.execute(
-        "UPDATE financial_news SET Summary = %s WHERE Number = %s",
-        (summary, article_number)
-    )
+    try:
+        # 기사 요약 생성
+        summary = summarize_article(article_content)
+        
+        # 데이터베이스 업데이트
+        cursor.execute(
+            "UPDATE api_financial_news SET Summary = %s WHERE Number = %s",
+            (summary, article_number)
+        )
+        
+        # 작업 단위 커밋 - 개별 작업 저장
+        conn.commit()
+        print(f"[{idx}/{len(rows)}] 요약 완료: {article_number}")
 
-# 커밋하여 변경사항 저장
-conn.commit()
+    except pymysql.OperationalError as e:
+        print(f"MySQL 연결 오류 발생 ({article_number}): {e}")
+        print("연결 재설정 중...")
+        
+        # 연결 재설정
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        # 작업 다시 시도
+        cursor.execute(
+            "UPDATE api_financial_news SET Summary = %s WHERE Number = %s",
+            (summary, article_number)
+        )
+        conn.commit()
+
+    except Exception as e:
+        print(f"오류 발생 ({article_number}): {e}")
+        conn.rollback()  # 현재 작업 롤백
 
 # 연결 종료
 cursor.close()
