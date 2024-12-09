@@ -1,7 +1,9 @@
-# Capstone-Design
-## Dataset
-감정 분석에 사용할 수 있는 긍정(positive), 중립(neutral), 부정(negative)이 라벨링이 된 텍스트 데이터
-### finance_data.csv
-- 언어: 영어, 한국어
-- 출처 : Finance Phrase Bank (Malo et al., 2014)
-- 데이터 건수 : 4,846건
+  <h2>Key Features</h2>
+
+  <h3>📊 Sentiment Analysis Model</h3>
+  <p>ESSENTI’s sentiment analysis model uses natural language processing (NLP) and deep learning techniques to analyze financial news, classifying it into positive, neutral, or negative sentiments.  
+  This allows investors to understand the overall sentiment of market news and predict trends based on emotional shifts.</p>
+
+  <h3>📌 Financial News Summarization Model</h3>
+  <p>ESSENTI’s summarization model extracts the most important information from financial news articles, helping investors quickly understand key points without reading the entire article.  
+  This enables faster, more informed decision-making based on the most relevant data.</p>
